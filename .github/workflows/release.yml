@@ -1,0 +1,78 @@
+name: Release Termux Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-termux-deb:
+    name: Build Termux .deb (aarch64-linux-android)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Extract Tag Version
+        id: get_version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Build Binary for Android (aarch64)
+        run: |
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          cargo build --release --target aarch64-linux-android
+
+      - name: Prepare Termux .deb Package Directory Structure
+        run: |
+          PKG_NAME="aovr_${{ env.VERSION }}_aarch64"
+          BUILD_DIR="build_deb/${PKG_NAME}"
+
+          TERMUX_BIN_DIR="${BUILD_DIR}/data/data/com.termux/files/usr/bin"
+          DEBIAN_DIR="${BUILD_DIR}/DEBIAN"
+
+          mkdir -p "${TERMUX_BIN_DIR}"
+          mkdir -p "${DEBIAN_DIR}"
+
+          cp target/aarch64-linux-android/release/aovr "${TERMUX_BIN_DIR}/aovr"
+          chmod 755 "${TERMUX_BIN_DIR}/aovr"
+
+          cat <<EOF > "${DEBIAN_DIR}/control"
+          Package: aovr
+          Version: ${{ env.VERSION }}
+          Architecture: aarch64
+          Maintainer: Sohan <sohan@users.noreply.github.com>
+          Installed-Size: $(du -ks "${BUILD_DIR}/data" | cut -f1)
+          Section: utils
+          Priority: optional
+          Homepage: https://github.com/${{ github.repository }}
+          Description: Terminal User Interface (TUI) for interactively managing Android Runtime Overlays in Termux.
+          EOF
+
+      - name: Build .deb Package
+        run: |
+          PKG_NAME="aovr_${{ env.VERSION }}_aarch64"
+          dpkg-deb --build "build_deb/${PKG_NAME}" "${PKG_NAME}.deb"
+
+      - name: Upload Artifact to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            aovr_${{ env.VERSION }}_aarch64.deb
+            target/aarch64-linux-android/release/aovr
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
