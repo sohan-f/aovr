@@ -1,0 +1,25 @@
+[package]
+name = "aovr"
+version = "0.1.0"
+edition = "2024"
+
+authors = ["Sohan Ali <sohanakndo019@gmail.com>"]
+license = "MIT"
+description = "A mobile-first TUI for managing Android Runtime Resource Overlays (RRO)."
+repository = "https://github.com/sohan-f/aovr"
+keywords = ["android", "overlay", "rro", "tui", "termux"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm"] }
+crossterm = "0.29.0"
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
