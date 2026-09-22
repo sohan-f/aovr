@@ -50,7 +50,7 @@ jobs:
       - name: Build Binary for Android (aarch64)
         run: |
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${{ steps.ndk.outputs.linker }}"
-          cargo build --locked --release --target aarch64-linux-android
+          cargo build --locked --release --no-default-features --target aarch64-linux-android
 
       - name: Prepare Termux .deb Package Directory Structure
         run: |

@@ -4,10 +4,11 @@
 use std::{
     env,
     ffi::{OsStr, OsString},
-    fs, io,
-    path::PathBuf,
+    io,
     process::{Command, Output},
 };
+#[cfg(feature = "virtual")]
+use std::{fs, path::PathBuf};
 
 use crate::parsers::{self, Targets};
 
@@ -18,9 +19,11 @@ const DEFAULT_SU: &str = "/system/bin/su";
 const DEFAULT_SU: &str = "su";
 
 const SU_ENV_VAR: &str = "AOVR_SU";
+#[cfg(feature = "virtual")]
 const TARGETS_FILE_ENV: &str = "AOVR_TARGETS_FILE";
 
 /// Real-device capture used as the default list on non-Android hosts.
+#[cfg(feature = "virtual")]
 const BUNDLED_VIRTUAL_LIST: &str = include_str!("../assets/virtual_targets.txt");
 
 /// `cmd` prints these on binder failure — even when it exits 0, so exit
@@ -31,11 +34,13 @@ const CMD_FAILURE_MARKERS: [&str; 2] = ["Failure calling service", "Can't find s
 pub enum Backend {
     /// Real device: `su -c "cmd overlay …"` via the given root helper.
     Su(OsString),
-    /// Replayed list; toggles stay in-memory.
+    /// Replayed list; toggles stay in-memory. Dev builds only.
+    #[cfg(feature = "virtual")]
     Virtual(VirtualStore),
 }
 
 #[derive(Debug)]
+#[cfg(feature = "virtual")]
 pub struct VirtualStore {
     source: VirtualSource,
     targets: Targets,
@@ -43,6 +48,7 @@ pub struct VirtualStore {
 }
 
 #[derive(Debug)]
+#[cfg(feature = "virtual")]
 enum VirtualSource {
     Bundled,
     File(PathBuf),
@@ -50,12 +56,16 @@ enum VirtualSource {
 
 impl Default for Backend {
     fn default() -> Self {
-        Self::virtual_bundled()
+        #[cfg(feature = "virtual")]
+        return Self::virtual_bundled();
+        #[cfg(not(feature = "virtual"))]
+        return Self::Su(DEFAULT_SU.into());
     }
 }
 
+#[cfg(feature = "virtual")]
 impl VirtualStore {
-    #[cfg(test)]
+    #[cfg(all(test, feature = "virtual"))]
     pub fn new(targets: Targets) -> Self {
         Self {
             source: VirtualSource::Bundled,
@@ -127,11 +137,12 @@ impl VirtualStore {
 }
 
 impl Backend {
+    #[cfg(feature = "virtual")]
     pub fn virtual_bundled() -> Self {
         Self::Virtual(VirtualStore::bundled())
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "virtual"))]
     pub fn virtual_targets(targets: Targets) -> Self {
         Self::Virtual(VirtualStore::new(targets))
     }
@@ -142,6 +153,7 @@ impl Backend {
 
     /// Priority: `AOVR_TARGETS_FILE` > (`AOVR_SU` set or Android) > bundled
     /// virtual list.
+    #[cfg(feature = "virtual")]
     fn from_env_impl(get: impl Fn(&str) -> Option<OsString>, android: bool) -> Self {
         if let Some(path) = get(TARGETS_FILE_ENV).filter(|value| !value.is_empty()) {
             return Self::Virtual(VirtualStore::file(PathBuf::from(path)));
@@ -155,8 +167,17 @@ impl Backend {
         Self::virtual_bundled()
     }
 
+    #[cfg(not(feature = "virtual"))]
+    fn from_env_impl(get: impl Fn(&str) -> Option<OsString>, _android: bool) -> Self {
+        let su = get(SU_ENV_VAR).filter(|value| !value.is_empty());
+        Self::Su(su.unwrap_or_else(|| DEFAULT_SU.into()))
+    }
+
     pub fn is_virtual(&self) -> bool {
-        matches!(self, Self::Virtual(_))
+        #[cfg(feature = "virtual")]
+        return matches!(self, Self::Virtual(_));
+        #[cfg(not(feature = "virtual"))]
+        return false;
     }
 
     pub fn list(&mut self) -> io::Result<Targets> {
@@ -165,6 +186,7 @@ impl Backend {
                 let output = run_su(bin, "cmd overlay list")?;
                 targets_from_output(&output)
             }
+            #[cfg(feature = "virtual")]
             Self::Virtual(store) => store.list(),
         }
     }
@@ -182,6 +204,7 @@ impl Backend {
                     None => Ok(()),
                 }
             }
+            #[cfg(feature = "virtual")]
             Self::Virtual(store) => store.set_overlay(enabled, overlay),
         }
     }
@@ -356,6 +379,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "virtual")]
     fn bundled_virtual_list_is_the_real_device_capture() {
         let mut backend = Backend::default();
         assert!(backend.is_virtual());
@@ -363,6 +387,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "virtual")]
     fn virtual_toggle_applies_in_memory() {
         let mut backend = Backend::default();
 
@@ -397,6 +422,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "virtual")]
     fn virtual_toggle_rejects_unknown_and_broken_overlays() {
         let mut backend = Backend::default();
         let err = backend
@@ -411,6 +437,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "virtual")]
     fn backend_selection_priority() {
         let targets_file =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/virtual_targets.txt");
@@ -438,6 +465,19 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "virtual"))]
+    fn backend_is_always_su() {
+        let backend =
+            Backend::from_env_impl(|key| (key == SU_ENV_VAR).then(|| "/x/su".into()), false);
+        assert!(matches!(backend, Backend::Su(_)));
+
+        let backend = Backend::from_env_impl(|_| None, true);
+        assert!(matches!(backend, Backend::Su(_)));
+        assert!(!backend.is_virtual());
+    }
+
+    #[test]
+    #[cfg(feature = "virtual")]
     fn missing_targets_file_is_a_friendly_error() {
         let mut backend = Backend::from_env_impl(
             |key| (key == TARGETS_FILE_ENV).then(|| "/nonexistent/list.txt".into()),

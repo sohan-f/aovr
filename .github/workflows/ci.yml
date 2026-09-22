@@ -27,3 +27,22 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
+
+  no-virtual:
+    name: Release config without virtual mode
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Build
+        run: cargo build --locked --no-default-features
+
+      - name: Clippy
+        run: cargo clippy --locked --no-default-features -- -D warnings

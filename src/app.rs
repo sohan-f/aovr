@@ -111,7 +111,7 @@ impl App {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "virtual"))]
     pub fn with_targets(targets: Targets) -> Self {
         Self::with_backend(targets.clone(), shell::Backend::virtual_targets(targets))
     }
@@ -522,7 +522,7 @@ impl App {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "virtual"))]
 mod tests {
     use super::*;
 

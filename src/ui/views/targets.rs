@@ -18,11 +18,14 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App, crumb: Rect, body: Rect, foot:
     } else {
         format!("{}/{}", app.selected_target + 1, count)
     };
+    #[cfg(feature = "virtual")]
     let right = if app.is_virtual() {
         format!("virtual · {pos}")
     } else {
         pos
     };
+    #[cfg(not(feature = "virtual"))]
+    let right = pos;
     render_breadcrumb(frame, "󰓾  Targets", &right, crumb);
 
     let [_, search_area, list_area] = Layout::vertical([

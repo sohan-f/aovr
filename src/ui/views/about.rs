@@ -113,6 +113,7 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App, crumb: Rect, body: Rect, foot:
         ]),
     ]);
 
+    #[cfg(feature = "virtual")]
     if app.is_virtual() {
         content.extend([
             section_divider(),

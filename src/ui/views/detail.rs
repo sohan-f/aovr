@@ -28,11 +28,14 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App, crumb: Rect, body: Rect, foot:
         return;
     };
 
+    #[cfg(feature = "virtual")]
     let right = if app.is_virtual() {
         "virtual · overlays"
     } else {
         "overlays"
     };
+    #[cfg(not(feature = "virtual"))]
+    let right = "overlays";
     render_breadcrumb(frame, &format!("\u{f004d}  {target_name}"), right, crumb);
 
     let actionable = app.visible_overlays();
