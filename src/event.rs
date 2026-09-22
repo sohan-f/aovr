@@ -1,9 +1,11 @@
 use std::{io, time::Duration};
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
+};
 
 use crate::{
-    app::{App, CHROME_ROWS},
+    app::{App, CHROME_ROWS, SEARCH_BAR_H, SEARCH_GAP_H},
     screens::Screen,
 };
 
@@ -11,10 +13,11 @@ fn is_ctrl(key: &KeyEvent) -> bool {
     key.modifiers.contains(KeyModifiers::CONTROL)
 }
 
-/// Viewport of the Targets/Detail body block (chrome + 1-row padding removed).
+/// Viewport of the Targets/Detail list (chrome + gap + search bar + 1-row
+/// padding removed).
 fn list_viewport_height() -> u16 {
     crossterm::terminal::size()
-        .map(|(_, rows)| rows.saturating_sub(CHROME_ROWS + 2 + 2))
+        .map(|(_, rows)| rows.saturating_sub(CHROME_ROWS + 2 + 2 + SEARCH_GAP_H + SEARCH_BAR_H))
         .unwrap_or(10)
 }
 
@@ -22,10 +25,6 @@ fn about_viewport_height() -> u16 {
     crossterm::terminal::size()
         .map(|(_, rows)| rows.saturating_sub(CHROME_ROWS + 2))
         .unwrap_or(10)
-}
-
-fn about_max_scroll(content_len: u16) -> u16 {
-    content_len.saturating_sub(about_viewport_height())
 }
 
 /// At least one row, so a tiny terminal still moves.
@@ -38,11 +37,103 @@ pub fn handle(app: &mut App) -> io::Result<bool> {
         return Ok(false);
     }
 
-    let Event::Key(key) = event::read()? else {
+    let event = event::read()?;
+    if let Event::Mouse(mouse) = event {
+        match mouse.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                if app.search_clear_hit(mouse.column, mouse.row) {
+                    app.cancel_search();
+                } else if app.search_bar_hit(mouse.column, mouse.row) {
+                    match app.screen {
+                        Screen::Targets | Screen::Detail => app.start_search(),
+                        Screen::About => {}
+                    }
+                }
+            }
+            MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
+                if app.searching {
+                    if !app.search_has_matches() {
+                        return Ok(false);
+                    }
+                    app.confirm_search();
+                }
+                let down = mouse.kind == MouseEventKind::ScrollDown;
+                match app.screen {
+                    Screen::Targets => {
+                        if down {
+                            app.move_target_down();
+                        } else {
+                            app.move_target_up();
+                        }
+                    }
+                    Screen::Detail => {
+                        if down {
+                            app.move_overlay_down();
+                        } else {
+                            app.move_overlay_up();
+                        }
+                        app.clamp_detail_scroll(list_viewport_height());
+                    }
+                    Screen::About => {
+                        if down {
+                            let max = crate::ui::views::about::content_len(app.is_virtual())
+                                .saturating_sub(about_viewport_height());
+                            app.scroll_about_down(max);
+                        } else {
+                            app.scroll_about_up();
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        return Ok(false);
+    }
+
+    let Event::Key(key) = event else {
         return Ok(false);
     };
 
     if key.kind != KeyEventKind::Press {
+        return Ok(false);
+    }
+
+    if app.searching {
+        match app.screen {
+            Screen::Targets | Screen::Detail => {
+                let detail = app.screen == Screen::Detail;
+                match key.code {
+                    KeyCode::Esc => app.cancel_search(),
+                    KeyCode::Enter => {
+                        app.confirm_search();
+                        if detail {
+                            app.clamp_detail_scroll(list_viewport_height());
+                        }
+                    }
+                    KeyCode::Backspace | KeyCode::Delete => {
+                        app.pop_search_char();
+                        if detail {
+                            app.clamp_detail_scroll(list_viewport_height());
+                        }
+                    }
+                    KeyCode::Char('u') if is_ctrl(&key) => {
+                        app.clear_search_line();
+                        if detail {
+                            app.clamp_detail_scroll(list_viewport_height());
+                        }
+                    }
+                    KeyCode::Char('c') if is_ctrl(&key) => app.cancel_search(),
+                    KeyCode::Char(c) if !is_ctrl(&key) => {
+                        app.push_search_char(c);
+                        if detail {
+                            app.clamp_detail_scroll(list_viewport_height());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Screen::About => app.searching = false,
+        }
         return Ok(false);
     }
 
@@ -51,6 +142,9 @@ pub fn handle(app: &mut App) -> io::Result<bool> {
             KeyCode::Char('q') => return Ok(true),
             KeyCode::Char('a') => app.enter_about(),
             KeyCode::Char('r') => app.reload(),
+
+            KeyCode::Char('/') => app.start_search(),
+            KeyCode::Esc if !app.target_search.is_empty() => app.cancel_search(),
 
             KeyCode::Up | KeyCode::Char('k') => app.move_target_up(),
             KeyCode::Down | KeyCode::Char('j') => app.move_target_down(),
@@ -75,9 +169,15 @@ pub fn handle(app: &mut App) -> io::Result<bool> {
         Screen::Detail => match key.code {
             KeyCode::Char('q') => return Ok(true),
             KeyCode::Char('a') => app.enter_about(),
+            KeyCode::Char('/') => app.start_search(),
             KeyCode::Esc | KeyCode::Left | KeyCode::Char('h') => {
-                app.clear_status();
-                app.screen = Screen::Targets;
+                if key.code == KeyCode::Esc && !app.overlay_search.is_empty() {
+                    app.cancel_search();
+                } else {
+                    app.overlay_search.clear();
+                    app.clear_status();
+                    app.screen = Screen::Targets;
+                }
             }
 
             KeyCode::Up | KeyCode::Char('k') => {
@@ -125,9 +225,8 @@ pub fn handle(app: &mut App) -> io::Result<bool> {
         },
 
         Screen::About => {
-            // Length of `draw_about`'s content (29 + 6 in virtual mode); the
-            // renderer clamps the final value anyway.
-            let max_scroll = about_max_scroll(if app.is_virtual() { 35 } else { 29 });
+            let max_scroll = crate::ui::views::about::content_len(app.is_virtual())
+                .saturating_sub(about_viewport_height());
             let page = about_viewport_height();
 
             match key.code {

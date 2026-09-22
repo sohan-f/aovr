@@ -9,7 +9,11 @@ use crate::{
     shell,
 };
 
+use ratatui::layout::Rect;
+
 pub const CHROME_ROWS: u16 = 5;
+pub const SEARCH_BAR_H: u16 = 3;
+pub const SEARCH_GAP_H: u16 = 1;
 
 #[derive(Clone, Debug)]
 pub struct OverlayRow {
@@ -31,6 +35,11 @@ pub struct App {
     pub status_expires_at: Option<Instant>,
     pub detail_scroll: u16,
     pub about_scroll: u16,
+    pub target_search: String,
+    pub overlay_search: String,
+    pub searching: bool,
+    pub search_bar_area: Option<Rect>,
+    pub search_clear_area: Option<Rect>,
 }
 
 impl App {
@@ -48,6 +57,11 @@ impl App {
             detail_scroll: 0,
             status_expires_at: None,
             about_scroll: 0,
+            target_search: String::new(),
+            overlay_search: String::new(),
+            searching: false,
+            search_bar_area: None,
+            search_clear_area: None,
         }
     }
 
@@ -118,24 +132,145 @@ impl App {
         self.target_order = self.targets.keys().cloned().collect();
         self.target_order.sort();
 
-        if self.target_order.is_empty() {
-            self.selected_target = 0;
-            self.selected_overlay = 0;
-            return;
-        }
+        self.selected_target = self
+            .selected_target
+            .min(self.visible_target_indices().len().saturating_sub(1));
 
-        if self.selected_target >= self.target_order.len() {
-            self.selected_target = self.target_order.len() - 1;
-        }
-
-        let max_overlay = self.actionable_overlays().len().saturating_sub(1);
+        let max_overlay = self.visible_overlays().len().saturating_sub(1);
         self.selected_overlay = self.selected_overlay.min(max_overlay);
     }
 
-    pub fn current_target_name(&self) -> Option<&str> {
+    fn matches(haystack: &str, needle: &str) -> bool {
+        if needle.is_empty() {
+            return true;
+        }
+        if needle.chars().any(|c| c.is_uppercase()) {
+            haystack.contains(needle)
+        } else {
+            haystack.to_lowercase().contains(&needle.to_lowercase())
+        }
+    }
+
+    fn target_has_match(target: &TargetOverlays, needle: &str) -> bool {
+        target
+            .enabled
+            .iter()
+            .chain(target.disabled.iter())
+            .chain(target.broken.iter())
+            .any(|name| Self::matches(name, needle))
+    }
+
+    pub fn visible_target_indices(&self) -> Vec<usize> {
         self.target_order
+            .iter()
+            .enumerate()
+            .filter(|(_, name)| {
+                Self::matches(name, &self.target_search)
+                    || self
+                        .targets
+                        .get(*name)
+                        .is_some_and(|t| Self::target_has_match(t, &self.target_search))
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    pub fn visible_overlays(&self) -> Vec<OverlayRow> {
+        self.actionable_overlays()
+            .into_iter()
+            .filter(|row| Self::matches(&row.name, &self.overlay_search))
+            .collect()
+    }
+
+    pub fn visible_broken(&self) -> Vec<String> {
+        self.broken_overlays()
+            .into_iter()
+            .filter(|name| Self::matches(name, &self.overlay_search))
+            .collect()
+    }
+
+    pub fn search_bar_hit(&self, x: u16, y: u16) -> bool {
+        self.search_bar_area.is_some_and(|area| {
+            x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height
+        })
+    }
+
+    pub fn search_clear_hit(&self, x: u16, y: u16) -> bool {
+        self.search_clear_area.is_some_and(|area| {
+            x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height
+        })
+    }
+
+    pub fn active_search_query(&self) -> &str {
+        match self.screen {
+            Screen::Detail => &self.overlay_search,
+            _ => &self.target_search,
+        }
+    }
+
+    fn active_search_query_mut(&mut self) -> &mut String {
+        match self.screen {
+            Screen::Detail => &mut self.overlay_search,
+            _ => &mut self.target_search,
+        }
+    }
+
+    pub fn start_search(&mut self) {
+        self.searching = true;
+    }
+
+    pub fn search_has_matches(&self) -> bool {
+        match self.screen {
+            Screen::Detail => {
+                !self.visible_overlays().is_empty() || !self.visible_broken().is_empty()
+            }
+            _ => !self.visible_target_indices().is_empty(),
+        }
+    }
+
+    pub fn push_search_char(&mut self, c: char) {
+        self.active_search_query_mut().push(c);
+        self.reset_search_selection();
+    }
+
+    pub fn pop_search_char(&mut self) {
+        self.active_search_query_mut().pop();
+        self.reset_search_selection();
+    }
+
+    pub fn clear_search_line(&mut self) {
+        self.active_search_query_mut().clear();
+        self.reset_search_selection();
+    }
+
+    pub fn confirm_search(&mut self) {
+        self.searching = false;
+        self.reset_search_selection();
+    }
+
+    pub fn cancel_search(&mut self) {
+        self.active_search_query_mut().clear();
+        self.searching = false;
+        self.reset_search_selection();
+    }
+
+    fn reset_search_selection(&mut self) {
+        match self.screen {
+            Screen::Detail => {
+                self.selected_overlay = 0;
+            }
+            _ => {
+                self.selected_target = 0;
+                self.after_target_jump();
+            }
+        }
+    }
+
+    pub fn current_target_name(&self) -> Option<&str> {
+        let indices = self.visible_target_indices();
+        indices
             .get(self.selected_target)
-            .map(String::as_str)
+            .map(|&i| self.target_order[i].as_str())
     }
 
     pub fn current_target(&self) -> Option<&TargetOverlays> {
@@ -171,7 +306,13 @@ impl App {
     }
 
     pub fn enter_detail(&mut self) {
-        let max = self.actionable_overlays().len().saturating_sub(1);
+        let query = self.target_search.clone();
+        let overlay_match = !query.is_empty()
+            && self
+                .current_target()
+                .is_some_and(|t| Self::target_has_match(t, &query));
+        self.overlay_search = if overlay_match { query } else { String::new() };
+        let max = self.visible_overlays().len().saturating_sub(1);
         if self.selected_overlay > max {
             self.selected_overlay = 0;
         }
@@ -198,9 +339,9 @@ impl App {
     }
 
     pub fn page_target_down(&mut self, page: u16) {
-        if !self.target_order.is_empty() {
-            self.selected_target =
-                (self.selected_target + page as usize).min(self.target_order.len() - 1);
+        let len = self.visible_target_indices().len();
+        if len > 0 {
+            self.selected_target = (self.selected_target + page as usize).min(len - 1);
         }
         self.after_target_jump();
     }
@@ -211,7 +352,7 @@ impl App {
     }
 
     pub fn select_target_last(&mut self) {
-        self.selected_target = self.target_order.len().saturating_sub(1);
+        self.selected_target = self.visible_target_indices().len().saturating_sub(1);
         self.after_target_jump();
     }
 
@@ -234,7 +375,7 @@ impl App {
     }
 
     pub fn page_overlay_down(&mut self, page: u16) {
-        let max = self.actionable_overlays().len().saturating_sub(1);
+        let max = self.visible_overlays().len().saturating_sub(1);
         self.selected_overlay = (self.selected_overlay + page as usize).min(max);
     }
 
@@ -243,7 +384,7 @@ impl App {
     }
 
     pub fn select_overlay_last(&mut self) {
-        self.selected_overlay = self.actionable_overlays().len().saturating_sub(1);
+        self.selected_overlay = self.visible_overlays().len().saturating_sub(1);
     }
 
     pub fn apply_selected_overlay(&mut self) -> io::Result<()> {
@@ -252,7 +393,7 @@ impl App {
             None => return Ok(()),
         };
 
-        let rows = self.actionable_overlays();
+        let rows = self.visible_overlays();
         let Some(row) = rows.get(self.selected_overlay) else {
             self.set_status("No overlay selected.");
             return Ok(());
@@ -288,15 +429,15 @@ impl App {
         self.targets = self.backend.list()?;
         self.refresh_order();
 
-        if let Some(idx) = keep_target
-            .as_ref()
-            .and_then(|target| self.target_order.iter().position(|n| n == target))
-        {
-            self.selected_target = idx;
+        if let Some(name) = keep_target.as_ref() {
+            let indices = self.visible_target_indices();
+            if let Some(pos) = indices.iter().position(|&i| &self.target_order[i] == name) {
+                self.selected_target = pos;
+            }
         }
 
         if let Some(ref overlay_name) = keep_overlay {
-            let rows = self.actionable_overlays();
+            let rows = self.visible_overlays();
             if let Some(idx) = rows.iter().position(|r| r.name == *overlay_name) {
                 self.selected_overlay = idx;
             }
@@ -306,7 +447,7 @@ impl App {
     }
 
     pub fn selected_overlay_line(&self) -> u16 {
-        let actionable = self.actionable_overlays();
+        let actionable = self.visible_overlays();
         let enabled_count = actionable.iter().filter(|r| r.enabled).count();
 
         if self.selected_overlay < enabled_count {
@@ -513,5 +654,187 @@ mod tests {
         app.selected_overlay = 99;
         app.move_overlay_down();
         assert_eq!(app.selected_overlay, 3, "stale cursor is reeled back in");
+    }
+
+    #[test]
+    fn target_search_filters_case_insensitively() {
+        let mut app = App::with_targets(fixture_targets());
+        assert_eq!(app.visible_target_indices().len(), 2);
+
+        app.target_search = "acme.b".into();
+        let visible = app.visible_target_indices();
+        assert_eq!(visible.len(), 1);
+        assert_eq!(app.target_order[visible[0]], "com.acme.b");
+
+        app.target_search = "nomatch".into();
+        assert!(app.visible_target_indices().is_empty());
+        assert!(app.current_target_name().is_none());
+    }
+
+    #[test]
+    fn uppercase_query_matches_case_sensitively() {
+        let mut app = App::with_targets(fixture_targets());
+
+        app.target_search = "ACME.B".into();
+        assert!(
+            app.visible_target_indices().is_empty(),
+            "uppercase query must not match lowercase names"
+        );
+
+        app.target_search = "ACME".into();
+        assert!(app.visible_target_indices().is_empty());
+
+        app.overlay_search = "A.ENABLED1".into();
+        assert!(
+            app.visible_overlays().is_empty(),
+            "uppercase query must not match lowercase overlays"
+        );
+    }
+
+    #[test]
+    fn target_search_matches_overlay_names() {
+        let mut app = App::with_targets(fixture_targets());
+
+        app.target_search = "enabled1".into();
+        let visible = app.visible_target_indices();
+        assert_eq!(visible.len(), 1);
+        assert_eq!(
+            app.target_order[visible[0]], "com.acme.a",
+            "target matches via its overlay name"
+        );
+
+        app.target_search = "b.disabled1".into();
+        let visible = app.visible_target_indices();
+        assert_eq!(visible.len(), 1);
+        assert_eq!(app.target_order[visible[0]], "com.acme.b");
+    }
+
+    #[test]
+    fn enter_detail_carries_overlay_query_only_on_overlay_match() {
+        let mut app = App::with_targets(fixture_targets());
+
+        app.target_search = "enabled1".into();
+        app.enter_detail();
+        assert_eq!(app.overlay_search, "enabled1");
+        assert_eq!(app.visible_overlays().len(), 1);
+
+        let mut app = App::with_targets(fixture_targets());
+        app.target_search = "com.acme.a".into();
+        app.enter_detail();
+        assert!(
+            app.overlay_search.is_empty(),
+            "target-name query must not hide toggleable overlays"
+        );
+        assert_eq!(app.visible_overlays().len(), 4);
+    }
+
+    #[test]
+    fn search_bar_hit_tests_last_drawn_area() {
+        use ratatui::layout::Rect;
+
+        let mut app = App::with_targets(fixture_targets());
+        assert!(!app.search_bar_hit(5, 4), "no area drawn yet");
+
+        app.search_bar_area = Some(Rect::new(0, 4, 80, 1));
+        assert!(app.search_bar_hit(5, 4));
+        assert!(app.search_bar_hit(79, 4));
+        assert!(!app.search_bar_hit(80, 4));
+        assert!(!app.search_bar_hit(5, 5));
+    }
+
+    #[test]
+    fn target_search_resets_and_clamps_selection() {
+        let mut app = App::with_targets(fixture_targets());
+        app.selected_target = 1;
+
+        app.target_search = "com.acme.a".into();
+        app.refresh_order();
+        assert_eq!(app.selected_target, 0, "clamped into the filtered list");
+        assert_eq!(app.current_target_name(), Some("com.acme.a"));
+
+        app.push_search_char('x');
+        assert_eq!(app.selected_target, 0);
+        assert!(app.visible_target_indices().is_empty());
+
+        app.cancel_search();
+        assert!(app.target_search.is_empty());
+        assert!(!app.searching);
+        assert_eq!(app.visible_target_indices().len(), 2);
+    }
+
+    #[test]
+    fn search_input_editing() {
+        let mut app = App::with_targets(fixture_targets());
+        app.start_search();
+        assert!(app.searching);
+
+        app.push_search_char('a');
+        app.push_search_char('b');
+        assert_eq!(app.active_search_query(), "ab");
+
+        app.pop_search_char();
+        assert_eq!(app.active_search_query(), "a");
+
+        app.clear_search_line();
+        assert!(app.active_search_query().is_empty());
+
+        app.push_search_char('z');
+        app.confirm_search();
+        assert!(!app.searching);
+        assert_eq!(app.active_search_query(), "z");
+    }
+
+    #[test]
+    fn overlay_search_filters_toggleable_rows() {
+        let mut app = App::with_targets(fixture_targets());
+        assert_eq!(app.visible_overlays().len(), 4);
+
+        app.overlay_search = "enabled1".into();
+        let visible = app.visible_overlays();
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].name, "a.enabled1");
+
+        app.overlay_search = "disabled".into();
+        assert_eq!(app.visible_overlays().len(), 2);
+        assert_eq!(
+            app.visible_broken().len(),
+            0,
+            "broken never matches 'disabled'"
+        );
+
+        app.overlay_search = "broken".into();
+        assert!(app.visible_overlays().is_empty());
+        assert_eq!(app.visible_broken(), ["a.broken1"]);
+    }
+
+    #[test]
+    fn wheel_confirms_only_when_matches_exist() {
+        let mut app = App::with_targets(fixture_targets());
+        app.start_search();
+        assert!(app.search_has_matches(), "empty query matches everything");
+
+        app.target_search = "zzz".into();
+        assert!(!app.search_has_matches());
+
+        app.screen = Screen::Detail;
+        app.target_search.clear();
+        app.overlay_search = "broken".into();
+        assert!(
+            app.search_has_matches(),
+            "a broken-only hit still counts as a match"
+        );
+
+        app.overlay_search = "zzz".into();
+        assert!(!app.search_has_matches());
+    }
+
+    #[test]
+    fn overlay_search_clamps_cursor() {
+        let mut app = App::with_targets(fixture_targets());
+        app.selected_overlay = 3;
+
+        app.overlay_search = "a.enabled1".into();
+        app.refresh_order();
+        assert_eq!(app.selected_overlay, 0, "clamped into the filtered rows");
     }
 }

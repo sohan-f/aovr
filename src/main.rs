@@ -2,6 +2,7 @@
 // `aarch64-linux-android`. See README "Building".
 mod app;
 mod event;
+mod keys;
 mod parsers;
 mod screens;
 mod shell;
@@ -11,6 +12,7 @@ use std::io;
 
 use app::App;
 use crossterm::{
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -20,7 +22,7 @@ fn main() -> io::Result<()> {
     enable_raw_mode()?;
 
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -28,7 +30,7 @@ fn main() -> io::Result<()> {
     let mut app = App::load();
 
     loop {
-        terminal.draw(|frame| ui::draw(frame, &app))?;
+        terminal.draw(|frame| ui::draw(frame, &mut app))?;
 
         app.tick();
         if event::handle(&mut app)? {
@@ -37,7 +39,7 @@ fn main() -> io::Result<()> {
     }
 
     disable_raw_mode()?;
-    execute!(io::stdout(), LeaveAlternateScreen)?;
+    execute!(io::stdout(), DisableMouseCapture, LeaveAlternateScreen)?;
     terminal.show_cursor()?;
     Ok(())
 }

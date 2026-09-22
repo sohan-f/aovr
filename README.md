@@ -22,6 +22,7 @@
 - **Grouped Target View:** View all Android target packages alongside active overlay badge counts.
 - **Interactive Toggle:** Enable or disable overlays instantly using `Space` and apply changes with `Enter`.
 - **Vim & Arrow Navigation:** Native support for both `j`/`k` and `↑`/`↓` directional inputs.
+- **Smart Search Bar:** Filter targets and overlays with smart-case matching (`/` or click the bar, `Enter` applies, `Esc` or `×` clears).
 - **Fault-Tolerant:** Binder failures from `cmd` (e.g. `Failed transaction (2147483646)`) are surfaced as readable status messages — refresh the list with `r` instead of restarting.
 
 ## How It Works
@@ -41,9 +42,12 @@ It runs directly inside an Android terminal environment such as **Termux** with 
 | `↑` / `↓` or `j` / `k` | Move cursor (Targets / Detail / About) |
 | `g` / `G` or `Home` / `End` | Jump to first / last item |
 | `PgUp` / `PgDn` or `Ctrl-u` / `Ctrl-d` | Page / half-page jump |
-| `h` / `←` / `Esc` | Go back (Detail → Targets, dismiss About) |
+| `h` / `←` / `Esc` | Clear search, go back (Detail → Targets, dismiss About) |
 | `l` / `→` / `Enter` | Open detail / apply changes and go back |
 | `Space` | Open Targets / toggle overlay state in Detail |
+| `/` | Smart-case search over target and overlay names (`Enter` applies, `Esc` clears; top bar is clickable) |
+| Mouse wheel | Scroll / move selection (confirms search when matches exist) |
+| Click | Focus search bar, clear filter with `×` |
 | `r` | Refresh the overlay list (`cmd overlay list`) |
 | `a` | Open the About / Keyboard Reference screen |
 | `q` | Quit AOVR |
