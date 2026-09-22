@@ -1,0 +1,41 @@
+Overlay manager (overlay) commands:
+  help
+    Print this help text.
+  dump [--verbose] [--user USER_ID] [[FIELD] PACKAGE[:NAME]]
+    Print debugging information about the overlay manager.
+    With optional parameters PACKAGE and NAME, limit output to the specified
+    overlay or target. With optional parameter FIELD, limit output to
+    the corresponding SettingsItem field. Field names are all lower case
+    and omit the m prefix, i.e. 'userid' for SettingsItem.mUserId.
+  list [--user USER_ID] [PACKAGE[:NAME]]
+    Print information about target and overlay packages.
+    Overlay packages are printed in priority order. With optional
+    parameters PACKAGE and NAME, limit output to the specified overlay or
+    target.
+  enable [--user USER_ID] PACKAGE[:NAME]
+    Enable overlay within or owned by PACKAGE with optional unique NAME.
+  disable [--user USER_ID] PACKAGE[:NAME]
+    Disable overlay within or owned by PACKAGE with optional unique NAME.
+  enable-exclusive [--user USER_ID] [--category] PACKAGE
+    Enable overlay within or owned by PACKAGE and disable all other overlays
+    for its target package. If the --category option is given, only disables
+    other overlays in the same category.
+  set-priority [--user USER_ID] PACKAGE PARENT|lowest|highest
+    Change the priority of the overlay to be just higher than
+    the priority of PARENT If PARENT is the special keyword
+    'lowest', change priority of PACKAGE to the lowest priority.
+    If PARENT is the special keyword 'highest', change priority of
+    PACKAGE to the highest priority.
+  lookup [--user USER_ID] [--verbose] PACKAGE-TO-LOAD PACKAGE:TYPE/NAME
+    Load a package and print the value of a given resource
+    applying the current configuration and enabled overlays.
+    For a more fine-grained alternative, use 'idmap2 lookup'.
+  fabricate [--target-name OVERLAYABLE] --target PACKAGE
+            --name NAME [--file FILE] 
+            PACKAGE:TYPE/NAME ENCODED-TYPE-ID|TYPE-NAME ENCODED-VALUE
+    Create an overlay from a single resource. Caller must be root. Example:
+      fabricate --target android --name LighterGray \
+                android:color/lighter_gray 0x1c 0xffeeeeee
+  partition-order
+    Print the partition order from overlay config and how this order
+    got established, by default or by /product/overlay/partition_order.xml

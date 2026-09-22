@@ -1,6 +1,6 @@
 use ratatui::{
     prelude::*,
-    widgets::{Block, List, ListItem, ListState, Padding, Paragraph, Wrap},
+    widgets::{Block, List, ListItem, ListState, Padding, Paragraph},
 };
 
 use crate::{
@@ -32,10 +32,10 @@ pub fn draw(frame: &mut Frame<'_>, app: &App) {
     let banner_h = if area.height >= 22 { 3 } else { 1 };
 
     let chunks = Layout::vertical([
-        Constraint::Length(banner_h), // Header Banner
-        Constraint::Length(1),        // Breadcrumb
-        Constraint::Fill(1),          // Content body
-        Constraint::Length(3),        // Footer
+        Constraint::Length(banner_h),
+        Constraint::Length(1),
+        Constraint::Fill(1),
+        Constraint::Length(3),
     ])
     .split(area);
 
@@ -246,7 +246,12 @@ fn draw_targets(frame: &mut Frame<'_>, app: &App, crumb: Rect, body: Rect, foot:
     } else {
         format!("{}/{}", app.selected_target + 1, count)
     };
-    render_breadcrumb(frame, "󰓾  Targets", &pos, crumb);
+    let right = if app.is_virtual() {
+        format!("virtual · {pos}")
+    } else {
+        pos
+    };
+    render_breadcrumb(frame, "󰓾  Targets", &right, crumb);
 
     if app.target_order.is_empty() {
         frame.render_widget(
@@ -326,9 +331,20 @@ fn draw_targets(frame: &mut Frame<'_>, app: &App, crumb: Rect, body: Rect, foot:
     );
 
     let hints: &[(&str, &str)] = if narrow {
-        &[("↑↓", "move"), ("⏎", "open"), ("q", "quit")]
+        &[
+            ("j/k", "move"),
+            ("r", "refresh"),
+            ("⏎", "open"),
+            ("q", "quit"),
+        ]
     } else {
-        &[("↑↓", "move"), ("⏎", "open"), ("a", "about"), ("q", "quit")]
+        &[
+            ("j/k", "move"),
+            ("⏎", "open"),
+            ("r", "refresh"),
+            ("a", "about"),
+            ("q", "quit"),
+        ]
     };
     render_footer(frame, &app.status, hints, foot);
 }
@@ -355,7 +371,12 @@ fn draw_detail(frame: &mut Frame<'_>, app: &App, crumb: Rect, body: Rect, foot: 
         return;
     };
 
-    render_breadcrumb(frame, &format!("󰁍  {target_name}"), "overlays", crumb);
+    let right = if app.is_virtual() {
+        "virtual · overlays"
+    } else {
+        "overlays"
+    };
+    render_breadcrumb(frame, &format!("󰁍  {target_name}"), right, crumb);
 
     let actionable = app.actionable_overlays();
     let broken = app.broken_overlays();
@@ -499,10 +520,10 @@ fn draw_detail(frame: &mut Frame<'_>, app: &App, crumb: Rect, body: Rect, foot: 
 
     let narrow = body.width < NARROW;
     let hints: &[(&str, &str)] = if narrow {
-        &[("↑↓", "move"), ("Spc", "toggle"), ("Esc", "back")]
+        &[("j/k", "move"), ("Spc", "toggle"), ("Esc", "back")]
     } else {
         &[
-            ("↑↓", "move"),
+            ("j/k", "move"),
             ("Spc", "toggle"),
             ("⏎", "apply+back"),
             ("Esc", "back"),
@@ -580,10 +601,17 @@ fn draw_about(frame: &mut Frame<'_>, app: &App, crumb: Rect, body: Rect, foot: R
     ];
 
     content.extend([
-        key_ref_row("↑ / ↓  j / k", "navigate / scroll page", narrow),
-        key_ref_row("PgUp / PgDn", "scroll fast", narrow),
+        key_ref_row("j / k  ↑ / ↓", "move cursor / scroll", narrow),
+        key_ref_row("g / G", "jump to first / last  (Home / End)", narrow),
+        key_ref_row(
+            "PgUp / PgDn",
+            "page up / down  (Ctrl-u / Ctrl-d: half)",
+            narrow,
+        ),
+        key_ref_row("h / l  ← / →", "go back / open", narrow),
         key_ref_row("Space", "toggle overlay state", narrow),
         key_ref_row("Enter", "open detail / apply changes", narrow),
+        key_ref_row("r", "refresh overlay list", narrow),
         key_ref_row("Esc / a", "go back to target list", narrow),
         key_ref_row("q", "quit AOVR", narrow),
     ]);
@@ -608,6 +636,28 @@ fn draw_about(frame: &mut Frame<'_>, app: &App, crumb: Rect, body: Rect, foot: R
         ]),
     ]);
 
+    if app.is_virtual() {
+        content.extend([
+            section_divider(),
+            section_divider(),
+            Line::from(vec![
+                Span::styled("   󰒍 ", Style::default().fg(ACCENT)),
+                fg_bold("Virtual Mode"),
+            ]),
+            section_divider(),
+            Line::from(vec![
+                Span::raw("   "),
+                accent("󰅂 "),
+                fg_mid("Target list replayed from a bundled device capture."),
+            ]),
+            Line::from(vec![
+                Span::raw("   "),
+                accent("󰅂 "),
+                fg_mid("Toggles update the in-memory list only; no device is touched."),
+            ]),
+        ]);
+    }
+
     let block = body_block();
     let inner_area = block.inner(body);
 
@@ -623,12 +673,16 @@ fn draw_about(frame: &mut Frame<'_>, app: &App, crumb: Rect, body: Rect, foot: R
     render_footer(
         frame,
         &app.status,
-        &[("j/k", "scroll"), ("a / Esc", "back"), ("q", "quit")],
+        &[
+            ("j/k", "scroll"),
+            ("g/G", "top/bottom"),
+            ("a / Esc", "back"),
+            ("q", "quit"),
+        ],
         foot,
     );
 }
 
-/// Safely truncate string `s` to `max_chars` scalar units appending `…` when cut.
 fn truncate_str(s: &str, max_chars: usize) -> String {
     let char_count = s.chars().count();
     if char_count <= max_chars {

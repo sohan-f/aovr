@@ -1,0 +1,188 @@
+com.google.android.networkstack.tethering
+[x] com.motorola.android.networkstack.tethering.overlay.motCommon
+
+com.android.providers.telephony
+[x] com.android.providers.telephony.overlay.carriersettings
+--- com.android.providers.telephony.auto_generated_characteristics_rro
+
+com.android.companiondevicemanager
+--- com.android.companiondevicemanager.auto_generated_characteristics_rro
+
+com.motorola.coresettingsext
+[x] com.motorola.android.coresettingsext.overlay.doubletap
+[x] com.motorola.android.coresettingsext.overlay.cuscoi
+
+com.qualcomm.qti.telephonyservice
+--- com.qualcomm.qti.telephonyservice
+
+com.oem.euiccpartnerapp
+--- com.oem.euiccpartnerapp.overlay.att
+--- com.oem.euiccpartnerapp.overlay.tmo
+--- com.oem.euiccpartnerapp.overlay.vzw
+--- com.oem.euiccpartnerapp.overlay.br
+--- com.oem.euiccpartnerapp.overlay.cc
+--- com.oem.euiccpartnerapp.overlay.na
+--- com.oem.euiccpartnerapp.overlay.retca
+
+com.qti.qualcomm.datastatusnotification
+--- com.qti.qualcomm.datastatusnotification
+
+android
+[x] android.auto_generated_rro_vendor__
+[x] com.motorola.android.overlay.vendor.common
+[x] com.motorola.android.overlay.wfd
+[x] com.google.android.overlay.modules.captiveportallogin.forframework
+[x] com.google.android.overlay.gmsconfig.common
+[x] com.google.android.overlay.gmsconfig.comms
+[x] com.google.android.overlay.gmsconfig.contextualsearch
+[x] com.google.android.overlay.gmsconfig.gsa
+[x] com.google.android.overlay.gmsconfig.geotz
+[x] com.google.android.overlay.gmsconfig.personalsafety
+[x] com.google.android.overlay.gmsconfig.photos
+[x] com.google.android.overlay.gmsconfig.searchselector
+[x] com.google.android.overlay.modules.ext.services
+[x] com.google.android.overlay.modules.permissioncontroller.forframework
+[x] com.google.android.overlay.modules.modulemetadata.forframework
+[x] com.motorola.android.overlay.crystaltalkai
+--- android.auto_generated_characteristics_rro
+--- com.google.android.verifier.overlay
+[x] android.auto_generated_rro_product__
+[x] com.google.android.overlay.gmsconfig.asi
+[x] com.motorola.android.overlay.common
+[x] com.motorola.android.overlay.dualsim
+[x] com.motorola.android.overlay.lpptoga
+[x] com.motorola.android.overlay.appclone
+[x] com.motorola.android.overlay.qcom.common
+[x] com.motorola.batterycare.overlay
+[ ] com.android.internal.display.cutout.emulation.noCutout
+[ ] com.android.internal.display.cutout.emulation.corner
+[ ] com.android.internal.display.cutout.emulation.double
+[ ] com.android.internal.display.cutout.emulation.hole
+[ ] com.android.internal.display.cutout.emulation.tall
+[ ] com.android.internal.systemui.navbar.threebutton
+[ ] com.android.internal.display.cutout.emulation.waterfall
+[ ] com.android.role.notes.enabled
+[x] com.android.internal.systemui.navbar.gestural
+[ ] com.android.theme.font.Exo2Regular
+[ ] com.android.theme.icon.teardrop
+[ ] com.android.internal.systemui.navbar.transparent
+[ ] com.android.theme.icon.roundedrect
+[ ] IconifyComponentAMGC.overlay
+[x] IconifyComponentIPAS1.overlay
+[x] IconifyComponentTSTFRM.overlay
+[x] IconifyComponentDynamic1.overlay
+[x] IconifyComponentCR1.overlay
+[x] com.android.internal.systemui.navbar.hidegestural
+[ ] com.android.theme.font.RobotoSlabRegular
+[ ] com.android.theme.font.SpaceGrotesk
+[ ] com.android.theme.font.WorkSans
+[ ] com.android.theme.font.inter
+[ ] com.android.theme.icon.pebble
+[ ] com.android.theme.font.doto
+[ ] com.android.theme.font.RookeryRegular
+[x] com.android.systemui:neutral
+[x] com.android.theme.icon.round
+[x] com.android.theme.font.googlesansflex
+[x] com.android.systemui:accent
+[x] com.android.systemui:dynamic
+
+com.android.nfc
+[x] com.android.nfc.overlay
+
+org.codeaurora.ims
+[ ] org.codeaurora.ims
+
+com.android.systemui.accessibility.accessibilitymenu
+--- com.android.systemui.accessibility.accessibilitymenu.auto_generated_rro_product__
+
+com.google.android.permissioncontroller
+[x] com.google.android.overlay.modules.permissioncontroller
+
+com.qualcomm.qcrilmsgtunnel
+--- com.qualcomm.qcrilmsgtunnel
+
+com.android.providers.settings
+[x] com.motorola.android.providers.settings.overlay.dppcamera
+
+com.motorola.batterycare
+[x] com.motorola.batterycare.overlay.appside
+
+com.google.android.networkstack
+[x] com.motorola.android.networkstack.overlay.mcc460
+
+com.android.server.telecom
+[ ] com.motorola.android.server.telecom.overlay.jp
+
+com.motorola.android.providers.settings
+[x] com.motorola.android.providers.settings.auto_generated_rro_product__
+[x] com.motorola.android.providers.settings.overlay.dppnone
+
+com.android.dialer
+--- com.android.dialer.overlay.imei
+
+com.motorola.setup
+[x] com.motorola.setup.auto_generated_rro_product__
+[ ] com.motorola.setup.overlay.dlcdisclaimer
+
+com.motorola.launcherconfig
+[ ] com.motorola.launcherconfig.overlay.altice
+[x] com.motorola.launcherconfig.overlay.retin
+
+com.google.android.documentsui
+[x] com.google.android.overlay.modules.documentsui
+
+com.motorola.msimsettings
+[ ] com.motorola.msimsettings.overlay
+
+com.android.settings
+[x] com.motorola.android.settings.overlay.global
+[x] com.motorola.android.settings.overlay.fps.display
+[x] com.motorola.android.settings.overlay.power.bottom
+[x] com.motorola.android.settings.overlay.appclone
+
+com.qualcomm.location
+[ ] com.qualcomm.location
+
+com.motorola.launcher3
+--- com.motorola.launcher3.auto_generated_rro_product__
+[x] com.motorola.android.launcher.overlay.applabeltwolines.india
+--- com.motorola.android.launcher.overlay.animation.scale
+[ ] com.motorola.android.launcher.overlay.telus
+[x] com.motorola.android.launcher.overlay.retail.global
+[ ] com.motorola.android.launcher.overlay.vivo
+[ ] com.motorola.android.launcher.overlay.koodo
+
+com.google.android.wifi.resources
+[x] com.android.wifi.resources.overlay.motCommon
+[ ] com.android.wifi.resources.overlay.WifiVodafoneOverlay
+
+com.qualcomm.qti.uimGbaApp
+--- com.qualcomm.qti.uimGbaApp
+
+com.android.phone
+[x] com.android.phone.overlay.carriersettings
+--- com.android.phone.auto_generated_characteristics_rro
+[x] com.android.phone.overlay.motcommon
+[x] com.android.phone.overlay.common
+[x] com.android.phone.overlay.noHAC
+
+com.android.systemui
+[x] com.android.systemui.auto_generated_rro_vendor__
+[x] com.android.systemui.auto_generated_rro_product__
+[x] com.motorola.systemui.overlay.moto.sysbar
+[ ] com.motorola.systemui.overlay.dcm
+[ ] com.motorola.systemui.overlay.jp
+[ ] com.motorola.android.systemui.overlay.att
+[ ] com.motorola.android.systemui.overlay.tmo
+[ ] com.motorola.android.systemui.overlay.usc
+[ ] com.motorola.android.systemui.overlay.vzw
+[ ] com.android.systemui:GlanceOverlay
+[ ] com.motorola.android.systemui.overlay.sprint
+[x] IconifyComponentCR2.overlay
+[x] IconifyComponentDynamic2.overlay
+[x] IconifyComponentIPSUI1.overlay
+[x] IconifyComponentNFN.overlay
+
+com.qti.phone
+[ ] com.qti.phone
+

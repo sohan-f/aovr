@@ -1,6 +1,5 @@
-#[cfg(not(target_os = "android"))]
-compile_error!("aovr only supports Android.");
-
+// Builds on any host for development; CI cross-compiles release binaries for
+// `aarch64-linux-android`. See README "Building".
 mod app;
 mod event;
 mod parsers;
@@ -26,14 +25,7 @@ fn main() -> io::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = match App::load() {
-        Ok(app) => app,
-        Err(err) => {
-            let mut app = App::empty();
-            app.status = format!("Load failed: {err}");
-            app
-        }
-    };
+    let mut app = App::load();
 
     loop {
         terminal.draw(|frame| ui::draw(frame, &app))?;

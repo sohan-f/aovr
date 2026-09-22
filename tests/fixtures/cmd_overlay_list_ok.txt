@@ -1,0 +1,13 @@
+android
+[x] com.android.internal.systemui.navbar.gestural
+[ ] com.android.internal.systemui.navbar.threebutton
+[ ] com.android.internal.systemui.navbar.gestural_wide_back
+
+com.android.systemui
+[x] com.android.systemui.navbar.gestural
+[ ] com.android.theme.icon_pack.rounded.systemui
+--- com.android.systemui.broken.rro
+
+com.android.permissioncontroller
+[ ] com.permissioncontroller.googlecarui.rro
+
