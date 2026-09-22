@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -51,6 +51,18 @@ jobs:
         run: |
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${{ steps.ndk.outputs.linker }}"
           cargo build --locked --release --no-default-features --target aarch64-linux-android
+
+      - name: Verify release binary is virtual-free
+        run: |
+          bin=target/aarch64-linux-android/release/aovr
+          file "$bin" | grep -q aarch64 || { echo "not an aarch64 binary" >&2; exit 1; }
+          for marker in 'IconifyComponentNFN' 'virtual ·' 'AOVR_TARGETS_FILE' 'in-memory'; do
+            if grep -a -qF "$marker" "$bin"; then
+              echo "release binary contains virtual residue: $marker" >&2
+              exit 1
+            fi
+          done
+          echo "release binary is virtual-free"
 
       - name: Prepare Termux .deb Package Directory Structure
         run: |
